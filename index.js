@@ -34,8 +34,25 @@ async function connect() {
     });
 
     app.get("/appointmentOptions", async (req, res) => {
+      const date = req.query.date;
+      console.log(date);
       const query = {};
       const options = await appointOptCollection.find(query).toArray();
+      const bookingQuery = { appointmentDate: date };
+      const alreadyBooked = await bookingCollection
+        .find(bookingQuery)
+        .toArray();
+      options.forEach((option) => {
+        const optionBooked = alreadyBooked.filter(
+          (book) => book.treatment === option.name
+        );
+        const bookedSlots = optionBooked.map((book) => book.slot);
+        console.log(bookedSlots);
+        const remainingSlots = option.slots.filter(
+          (slot) => !bookedSlots.includes(slot)
+        );
+        option.slots = remainingSlots;
+      });
       res.send(options);
     });
   } finally {
