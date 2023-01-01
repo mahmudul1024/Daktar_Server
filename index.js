@@ -29,13 +29,25 @@ async function connect() {
     app.post("/bookings", async (req, res) => {
       const booking = req.body;
       console.log(booking);
+      const query = {
+        appointmentDate: booking.appointmentDate,
+        email: booking.email,
+        treatment: booking.treatment,
+      };
+      const alreadyBooked = await bookingCollection.find(query).toArray();
+      console.log(alreadyBooked);
+
+      if (alreadyBooked.length) {
+        const message = `you already have a booking on ${booking.appointmentDate}`;
+        return res.send({ acknowledged: false, message });
+      }
       const result = await bookingCollection.insertOne(booking);
       res.send(result);
     });
 
     app.get("/appointmentOptions", async (req, res) => {
       const date = req.query.date;
-      console.log(date);
+      // console.log(date);
       const query = {};
       const options = await appointOptCollection.find(query).toArray();
       const bookingQuery = { appointmentDate: date };
@@ -47,7 +59,7 @@ async function connect() {
           (book) => book.treatment === option.name
         );
         const bookedSlots = optionBooked.map((book) => book.slot);
-        console.log(bookedSlots);
+        // console.log(bookedSlots);
         const remainingSlots = option.slots.filter(
           (slot) => !bookedSlots.includes(slot)
         );
@@ -55,6 +67,55 @@ async function connect() {
       });
       res.send(options);
     });
+
+    // app.get("/v2/appointmentOptions", async (req, res) => {
+    //   const date = req.query.date;
+    //   const options = await appointOptCollection
+    //     .aggregate([
+    //       {
+    //         $lookup: {
+    //           from: "bookings",
+    //           localField: "name",
+    //           foreignField: "treatment",
+    //           pipeline: [
+    //             {
+    //               $match: {
+    //                 $expr: {
+    //                   $eq: ["$appointmentDate", date],
+    //                 },
+    //               },
+    //             },
+    //           ],
+    //           as: "booked",
+    //         },
+    //       },
+
+    //       {
+    //         $project: {
+    //           name: 1,
+    //           slots: 1,
+    //           booked: {
+    //             $map: {
+    //               input: "$booked",
+    //               as: "book",
+    //               in: "$$book.slot",
+    //             },
+    //           },
+    //         },
+    //       },
+
+    //       {
+    //         $project: {
+    //           name: 1,
+    //           slots: {
+    //             $setDefferance: ["$slots", "$booked"],
+    //           },
+    //         },
+    //       },
+    //     ])
+    //     .toArray();
+    //   res.send(options);
+    // });
   } finally {
   }
 }
