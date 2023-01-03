@@ -5,7 +5,6 @@ const cors = require("cors");
 const app = express();
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
-const { query } = require("express");
 
 const port = process.env.PORT || 5000;
 
@@ -43,9 +42,21 @@ async function connect() {
     const bookingCollection = client.db("Doctor_praxis").collection("bookings");
 
     const usersCollection = client.db("Doctor_praxis").collection("users");
+    const DoctorsCollection = client.db("Doctor_praxis").collection("doctors");
     const appointOptCollection = client
       .db("Doctor_praxis")
       .collection("AppointmentOptions");
+
+    // make sure you use verifyAdmin after verifyJWT
+    const verifyAdmin = async (req, res, next) => {
+      const decodedEmail = req.decoded.email;
+      const query = { email: decodedEmail };
+      const user = await usersCollection.findOne(query);
+      if (user?.role !== "admin") {
+        return res.status(403).send({ message: "forbidden access from put" });
+      }
+      next();
+    };
 
     app.get("/bookings", verifyJWT, async (req, res) => {
       const email = req.query.email;
@@ -115,7 +126,7 @@ async function connect() {
       const user = await usersCollection.findOne(query);
       if (user) {
         const token = jwt.sign({ email }, process.env.TOKEN_ACCESS, {
-          expiresIn: "24h",
+          expiresIn: "24d",
         });
         return res.send({ accessToken: token });
       }
@@ -128,13 +139,16 @@ async function connect() {
       res.send(users);
     });
 
-    app.put("/users/admin/:id", verifyJWT, async (req, res) => {
-      const decodedEmail = req.decoded.email;
-      const query = { email: decodedEmail };
-      const user = await usersCollection.findOne(query);
-      if (user?.role !== "admin") {
-        return res.status(403).send({ message: "forbidden access" });
-      }
+    app.get("/appointmentSpeciality", async (req, res) => {
+      const query = {};
+      const result = await appointOptCollection
+        .find(query)
+        .project({ name: 1 })
+        .toArray();
+      res.send(result);
+    });
+
+    app.put("/users/admin/:id", verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const options = { upsert: true };
       const filter = { _id: ObjectId(id) };
@@ -156,6 +170,28 @@ async function connect() {
       const query = { email };
       const user = await usersCollection.findOne(query);
       res.send({ isAdmin: user?.role === "admin" });
+    });
+
+    app.post("/doctors", verifyJWT, verifyAdmin, async (req, res) => {
+      console.log("inside /doctor");
+      const doctor = req.body;
+      const result = await DoctorsCollection.insertOne(doctor);
+      console.log("image server a chole gese");
+      res.send(result);
+    });
+
+    app.get("/doctors", verifyJWT, verifyAdmin, async (req, res) => {
+      const query = {};
+      const doctors = await DoctorsCollection.find(query).toArray();
+
+      res.send(doctors);
+    });
+
+    app.delete("/doctors/:id", verifyJWT, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: ObjectId(id) };
+      const result = await DoctorsCollection.deleteOne(filter);
+      res.send(result);
     });
 
     // app.get("/v2/appointmentOptions", async (req, res) => {
