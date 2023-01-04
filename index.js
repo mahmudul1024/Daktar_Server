@@ -41,6 +41,9 @@ function verifyJWT(req, res, next) {
 async function connect() {
   try {
     const bookingCollection = client.db("Doctor_praxis").collection("bookings");
+    const paymentsCollection = client
+      .db("Doctor_praxis")
+      .collection("payments");
 
     const usersCollection = client.db("Doctor_praxis").collection("users");
     const DoctorsCollection = client.db("Doctor_praxis").collection("doctors");
@@ -233,6 +236,24 @@ async function connect() {
       res.send({
         clientSecret: paymentIntents.client_secret,
       });
+    });
+
+    app.post("/payments", async (req, res) => {
+      const payment = req.body;
+      const result = await paymentsCollection.insertOne(payment);
+      const id = payment.bookingId;
+      const filter = { _id: ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          paid: true,
+          transactionId: payment.transactionId,
+        },
+      };
+      const updatedResult = await bookingCollection.updateOne(
+        filter,
+        updatedDoc
+      );
+      res.send(result);
     });
 
     // app.get("/v2/appointmentOptions", async (req, res) => {
