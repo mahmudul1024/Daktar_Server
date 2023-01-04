@@ -7,6 +7,7 @@ require("dotenv").config();
 const jwt = require("jsonwebtoken");
 
 const port = process.env.PORT || 5000;
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 // middleware
 app.use(cors());
@@ -122,15 +123,17 @@ async function connect() {
 
     app.get("/jwt", async (req, res) => {
       const email = req.query.email;
+      console.log("backend /jwt", email);
       const query = { email: email };
       const user = await usersCollection.findOne(query);
+      console.log("user ki pilam?", user);
       if (user) {
         const token = jwt.sign({ email }, process.env.TOKEN_ACCESS, {
           expiresIn: "24d",
         });
         return res.send({ accessToken: token });
       }
-      res.status(403).send({ accessToken: "" });
+      res.status(403).send({ accessToken: "nothing" });
     });
 
     app.get("/users", async (req, res) => {
@@ -165,6 +168,22 @@ async function connect() {
       res.send(result);
     });
 
+    // app.get("/book", async (req, res) => {
+    //   const filter = {};
+    //   const updatedDoc = {
+    //     $set: {
+    //       price: 99,
+    //     },
+    //   };
+    //   const options = { upsert: true };
+    //   const result = await bookingCollection.updateMany(
+    //     filter,
+    //     updatedDoc,
+    //     options
+    //   );
+    //   res.send(result);
+    // });
+
     app.get("/users/admin/:email", async (req, res) => {
       const email = req.params.email;
       const query = { email };
@@ -192,6 +211,28 @@ async function connect() {
       const filter = { _id: ObjectId(id) };
       const result = await DoctorsCollection.deleteOne(filter);
       res.send(result);
+    });
+
+    app.get("/bookings/:id", async (req, res) => {
+      const id = req.params.id;
+      console.log(id);
+      const query = { _id: ObjectId(id) };
+      const booking = await bookingCollection.findOne(query);
+      res.send(booking);
+    });
+
+    app.post("/create-payment-intent", async (req, res) => {
+      const booking = req.body;
+      const price = booking.price;
+      const amount = price * 100;
+      const paymentIntents = await stripe.paymentIntents.create({
+        currency: "usd",
+        amount: amount,
+        payment_method_types: ["card"],
+      });
+      res.send({
+        clientSecret: paymentIntents.client_secret,
+      });
     });
 
     // app.get("/v2/appointmentOptions", async (req, res) => {
