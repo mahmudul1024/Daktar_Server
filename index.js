@@ -34,6 +34,7 @@ function verifyJWT(req, res, next) {
     }
     req.decoded = decoded;
     console.log("suceess");
+    console.log(req.decoded);
     next();
   });
 }
@@ -66,6 +67,7 @@ async function connect() {
       const email = req.query.email;
       console.log(email);
       const decodedEmail = req.decoded.email;
+      console.log(decodedEmail);
       if (email !== decodedEmail) {
         return res.status(403).send({ message: "forbidden access" });
       }
@@ -132,7 +134,7 @@ async function connect() {
       console.log("user ki pilam?", user);
       if (user) {
         const token = jwt.sign({ email }, process.env.TOKEN_ACCESS, {
-          expiresIn: "24d",
+          expiresIn: "30d",
         });
         return res.send({ accessToken: token });
       }
